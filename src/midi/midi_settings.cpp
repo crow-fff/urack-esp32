@@ -1,19 +1,23 @@
 #include "midi.h"
 #include "midi_settings.h"
-#include "util.h"
+#include "ble_midi.h"
+#include "usb_midi.h"
+#include "../util.h"
 
 MidiSettings::MidiSettings(Display* display, MidiSettingsState* state, SignalProcessor* processor, ScreenSwitcher* screen_switcher)
     : ScreenInterface(display), state(state), processor(processor), screen_switcher(screen_switcher),
-      current_item(MENU_CHANNEL), is_editing(false), row_number(0) {}
+      current_page(PAGE_OUTPUTS), current_item(MENU_CHANNEL), is_editing(false), row_number(0), paginator_selected(true) {}
 
 void MidiSettings::set_screen_switcher(ScreenSwitcher* screen_switcher) {
     this->screen_switcher = screen_switcher;
 }
 
 void MidiSettings::enter() {
+    current_page = PAGE_OUTPUTS;
     current_item = MENU_CHANNEL;
     is_editing = false;
     row_number = 0;
+    paginator_selected = true;
 }
 
 void MidiSettings::exit() {
@@ -27,16 +31,61 @@ void MidiSettings::render() {
     display->setTextColor(SSD1306_WHITE);
     display->setCursor(0,0);
 
-    render_menu();
+    render_paginator();
+
+    switch (current_page) {
+        case PAGE_OUTPUTS:
+            render_menu();
+            break;
+        case PAGE_BLUETOOTH:
+            render_bluetooth_page();
+            break;
+        case PAGE_USB:
+            render_usb_page();
+            break;
+        default:
+            break;
+    }
 
     display->display();
 }
 
+void MidiSettings::render_paginator() {
+    const char* page_names[] = {"Out", "BLE", "USB"};
+    int page_width = SCREEN_WIDTH / PAGE_COUNT;
+    
+    for (int i = 0; i < PAGE_COUNT; i++) {
+        int x = i * page_width;
+        bool is_current = (i == current_page);
+        
+        if (is_current && paginator_selected) {
+            // Selected and paginator is active - filled rectangle
+            display->fillRect(x, 0, page_width, PAGINATOR_HEIGHT, SSD1306_WHITE);
+            display->setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        } else if (is_current) {
+            // Current page but not selected - outline
+            display->drawRect(x, 0, page_width, PAGINATOR_HEIGHT, SSD1306_WHITE);
+            display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        } else {
+            display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        }
+        
+        // Center text in tab
+        int text_width = strlen(page_names[i]) * 6; // 6 pixels per char at size 1
+        int text_x = x + (page_width - text_width) / 2;
+        display->setCursor(text_x, 2);
+        display->print(page_names[i]);
+    }
+    
+    // Draw separator line
+    display->drawLine(0, PAGINATOR_HEIGHT, SCREEN_WIDTH, PAGINATOR_HEIGHT, SSD1306_WHITE);
+}
+
 void MidiSettings::render_menu() {
-    // Render all rows
+    // Render all rows with offset for paginator
     for (int i = 0; i < MENU_COUNT; i++) {
-        int y = i * LINE_HEIGHT;
-        bool is_selected = (i == current_item);
+        int y = PAGINATOR_HEIGHT + 2 + i * LINE_HEIGHT;
+        bool is_selected = (i == current_item) && !paginator_selected;
         bool is_editing_selected = is_selected && is_editing;
         ColumnType col_type = items[i].type;
 
@@ -117,6 +166,80 @@ void MidiSettings::render_menu() {
     }
 }
 
+void MidiSettings::render_bluetooth_page() {
+    int y = PAGINATOR_HEIGHT + 4;
+    
+    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    display->setCursor(0, y);
+    display->println("Bluetooth MIDI");
+    
+    y += LINE_HEIGHT + 4;
+    
+    bool is_selected = !paginator_selected;
+    bool enabled = state->get_bluetooth_enabled();
+    
+    if (is_selected && is_editing) {
+        display->fillRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
+        display->setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+    } else if (is_selected) {
+        display->drawRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
+        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    } else {
+        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    }
+    
+    display->setCursor(2, y + 1);
+    display->print("Enable: ");
+    display->print(state->get_bluetooth_enabled_str());
+    
+    y += LINE_HEIGHT + 4;
+    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    display->setCursor(0, y);
+    display->print("Status: ");
+    if (enabled) {
+        display->print(ble_midi.is_connected() ? "Connected" : "Waiting...");
+    } else {
+        display->print("Disabled");
+    }
+}
+
+void MidiSettings::render_usb_page() {
+    int y = PAGINATOR_HEIGHT + 4;
+    
+    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    display->setCursor(0, y);
+    display->println("USB MIDI");
+    
+    y += LINE_HEIGHT + 4;
+    
+    bool is_selected = !paginator_selected;
+    bool enabled = state->get_usb_enabled();
+    
+    if (is_selected && is_editing) {
+        display->fillRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
+        display->setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+    } else if (is_selected) {
+        display->drawRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
+        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    } else {
+        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    }
+    
+    display->setCursor(2, y + 1);
+    display->print("Enable: ");
+    display->print(state->get_usb_enabled_str());
+    
+    y += LINE_HEIGHT + 4;
+    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    display->setCursor(0, y);
+    display->print("Status: ");
+    if (enabled) {
+        display->print("Active");
+    } else {
+        display->print("Disabled");
+    }
+}
+
 void MidiSettings::handle_input(Event* event) {
     if (event == nullptr) return;
 
@@ -130,26 +253,105 @@ void MidiSettings::handle_input(Event* event) {
         }
     } else {
         if (event->button_sw == ButtonPress) {
-            is_editing = true;
+            if (paginator_selected) {
+                // Move from paginator to content
+                paginator_selected = false;
+            } else {
+                is_editing = true;
 
-            // cleanup last cc array
-            for(int i = 0; i < MIDI_CHANNEL_COUNT; i++) {
-                processor->last_cc[i] = 128;
-                processor->pitchbend[i] = 0;
+                // cleanup last cc array
+                for(int i = 0; i < MIDI_CHANNEL_COUNT; i++) {
+                    processor->last_cc[i] = 128;
+                    processor->pitchbend[i] = 0;
+                }
             }
         }
 
         if(event->button_a == ButtonPress) {
-            screen_switcher->set_screen(MidiScreen::MidiScreenInfo);
+            if (!paginator_selected) {
+                // Move back to paginator
+                paginator_selected = true;
+            } else {
+                screen_switcher->set_screen(MidiScreen::MidiScreenInfo);
+            }
         }
     }
 
-    handle_menu_input(event);
+    // Handle page-specific input
+    switch (current_page) {
+        case PAGE_OUTPUTS:
+            handle_menu_input(event);
+            break;
+        case PAGE_BLUETOOTH:
+            handle_bluetooth_input(event);
+            break;
+        case PAGE_USB:
+            handle_usb_input(event);
+            break;
+        default:
+            break;
+    }
+}
+
+void MidiSettings::handle_bluetooth_input(Event* event) {
+    if (event->encoder != 0) {
+        if (paginator_selected) {
+            // Navigate between pages
+            int new_page = (int)current_page + event->encoder;
+            if (new_page >= 0 && new_page < PAGE_COUNT) {
+                current_page = (SettingsPage)new_page;
+            }
+        } else if (is_editing) {
+            // Toggle bluetooth enabled
+            bool enabled = state->get_bluetooth_enabled();
+            state->set_bluetooth_enabled(!enabled);
+            
+            // Enable/disable BLE MIDI
+            if (state->get_bluetooth_enabled()) {
+                ble_midi.enable();
+            } else {
+                ble_midi.disable();
+            }
+            
+            state->store();
+        }
+    }
+}
+
+void MidiSettings::handle_usb_input(Event* event) {
+    if (event->encoder != 0) {
+        if (paginator_selected) {
+            // Navigate between pages
+            int new_page = (int)current_page + event->encoder;
+            if (new_page >= 0 && new_page < PAGE_COUNT) {
+                current_page = (SettingsPage)new_page;
+            }
+        } else if (is_editing) {
+            // Toggle USB enabled
+            bool enabled = state->get_usb_enabled();
+            state->set_usb_enabled(!enabled);
+            
+            // Enable/disable USB MIDI
+            if (state->get_usb_enabled()) {
+                usb_midi.enable();
+            } else {
+                usb_midi.disable();
+            }
+            
+            state->store();
+        }
+    }
 }
 
 void MidiSettings::handle_menu_input(Event* event) {
     if (event->encoder != 0) {
-        if (is_editing) {
+        if (paginator_selected) {
+            // Navigate between pages
+            int new_page = (int)current_page + event->encoder;
+            if (new_page >= 0 && new_page < PAGE_COUNT) {
+                current_page = (SettingsPage)new_page;
+            }
+        } else if (is_editing) {
             // Adjust value
             const MenuItemInfo& item = items[current_item];
             
@@ -165,6 +367,8 @@ void MidiSettings::handle_menu_input(Event* event) {
                         state->set_midi_clk_type((MidiClkType)clampi(state->get_midi_clk_type() + event->encoder,
                                                                    state->get_min_midi_clk_type(),
                                                                    state->get_max_midi_clk_type()));
+                        break;
+                    default:
                         break;
                 }
             } else {
@@ -232,7 +436,7 @@ void MidiSettings::handle_menu_input(Event* event) {
     }
 
     // MIDI learn
-    if(is_editing && (processor->last_cc[current_item] != 0 || processor->pitchbend[current_item] != 0)) {
+    if(is_editing && !paginator_selected && (processor->last_cc[current_item] != 0 || processor->pitchbend[current_item] != 0)) {
         const MenuItemInfo& item = items[current_item];
         int idx = item.data.output_idx;
         MidiChannel channel = state->get_midi_out_channel(idx);

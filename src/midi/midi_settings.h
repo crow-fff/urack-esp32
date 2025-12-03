@@ -14,6 +14,14 @@ public:
     void update(Event* event) override;
 
 private:
+    // Settings pages
+    enum SettingsPage {
+        PAGE_OUTPUTS,
+        PAGE_BLUETOOTH,
+        PAGE_USB,
+        PAGE_COUNT
+    };
+
     enum MenuItems {
         MENU_CHANNEL,
         MENU_OUT_A,
@@ -60,16 +68,24 @@ private:
     const int COL2_WIDTH = COL3_X - COL2_X; // Width of column 2
     const int COL3_WIDTH = SCREEN_WIDTH - COL3_X; // Width of column 3
     const int LINE_HEIGHT = 8;
+    const int PAGINATOR_HEIGHT = 10;
 
     MidiSettingsState* state;
     SignalProcessor* processor;
     ScreenSwitcher* screen_switcher;
+    SettingsPage current_page;
     MenuItems current_item;
     bool is_editing;
     int row_number; // current column position within row (0 = first column, 1 = second column for ChannelItem)
+    bool paginator_selected; // true when paginator is selected for navigation
 
     void render(void);
+    void render_paginator(void);
     void render_menu(void);
+    void render_bluetooth_page(void);
+    void render_usb_page(void);
     void handle_input(Event* event);
     void handle_menu_input(Event* event);
+    void handle_bluetooth_input(Event* event);
+    void handle_usb_input(Event* event);
 };
