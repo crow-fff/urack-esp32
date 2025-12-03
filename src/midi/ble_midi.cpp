@@ -33,9 +33,6 @@ void BleMidi::enable() {
         BLEMidiServer.setNoteOnCallback(onNoteOn);
         BLEMidiServer.setNoteOffCallback(onNoteOff);
         BLEMidiServer.setControlChangeCallback(onControlChange);
-        BLEMidiServer.setOnClockCallback(onClock);
-        BLEMidiServer.setOnStartCallback(onStart);
-        BLEMidiServer.setOnStopCallback(onStop);
         // Note: ESP32-BLE-MIDI library doesn't support pitch bend callback directly
         initialized = true;
     }
@@ -76,17 +73,20 @@ void BleMidi::onDisconnect() {
     Serial.println("BLE MIDI disconnected");
 }
 
-void BleMidi::onNoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
+void BleMidi::onNoteOn(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp) {
+    (void)timestamp;
     if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
     s_processor->handle_note_on(channel, note, velocity);
 }
 
-void BleMidi::onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity) {
+void BleMidi::onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp) {
+    (void)timestamp;
     if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
     s_processor->handle_note_off(channel, note, velocity);
 }
 
-void BleMidi::onControlChange(uint8_t channel, uint8_t controller, uint8_t value) {
+void BleMidi::onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp) {
+    (void)timestamp;
     if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
     s_processor->handle_cc(channel, controller, value);
 }

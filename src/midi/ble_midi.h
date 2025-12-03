@@ -24,9 +24,9 @@ private:
     
     static void onConnect();
     static void onDisconnect();
-    static void onNoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
-    static void onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity);
-    static void onControlChange(uint8_t channel, uint8_t controller, uint8_t value);
+    static void onNoteOn(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp);
+    static void onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp);
+    static void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp);
     static void onClock();
     static void onStart();
     static void onStop();
