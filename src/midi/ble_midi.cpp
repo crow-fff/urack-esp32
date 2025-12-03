@@ -36,10 +36,10 @@ void BleMidi::enable() {
         BLEMidiServer.setOnClockCallback(onClock);
         BLEMidiServer.setOnStartCallback(onStart);
         BLEMidiServer.setOnStopCallback(onStop);
+        // Note: ESP32-BLE-MIDI library doesn't support pitch bend callback directly
         initialized = true;
     }
     
-    BLEMidiServer.enableDebugging();
     enabled = true;
     Serial.println("BLE MIDI enabled");
 }
@@ -89,11 +89,6 @@ void BleMidi::onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity) {
 void BleMidi::onControlChange(uint8_t channel, uint8_t controller, uint8_t value) {
     if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
     s_processor->handle_cc(channel, controller, value);
-}
-
-void BleMidi::onPitchBend(uint8_t channel, int value) {
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
-    s_processor->handle_pitchbend(channel, value);
 }
 
 void BleMidi::onClock() {
