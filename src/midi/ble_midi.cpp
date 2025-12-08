@@ -9,6 +9,27 @@ BleMidi ble_midi;
 static SignalProcessor* s_processor = nullptr;
 static BleMidi* s_ble_midi = nullptr;
 
+static uint8_t normalize_ble_channel(uint8_t raw_channel) {
+    return (raw_channel & 0x0F) + 1; // MIDI channels are transmitted 0-15; processor expects 1-16
+}
+
+static void log_ble_channel_event(const char* type, uint8_t raw_channel, uint8_t channel, uint8_t data1, uint8_t data2, uint16_t timestamp, bool processed) {
+    if (!DEBUG_BLE_MIDI) return;
+    Serial.printf("[BLE MIDI] %s raw_ch=%u ch=%u data1=%u data2=%u ts=%u%s\n",
+                  type,
+                  raw_channel,
+                  channel,
+                  data1,
+                  data2,
+                  timestamp,
+                  processed ? "" : " (ignored)");
+}
+
+static void log_ble_system_event(const char* type, bool processed) {
+    if (!DEBUG_BLE_MIDI) return;
+    Serial.printf("[BLE MIDI] %s%s\n", type, processed ? "" : " (ignored)");
+}
+
 BleMidi::BleMidi() 
     : processor(nullptr), enabled(false), connected(false), initialized(false) {
 }
@@ -74,34 +95,49 @@ void BleMidi::onDisconnect() {
 }
 
 void BleMidi::onNoteOn(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp) {
-    (void)timestamp;
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
-    s_processor->handle_note_on(channel, note, velocity);
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    uint8_t processor_channel = normalize_ble_channel(channel);
+
+    log_ble_channel_event("NoteOn", channel, processor_channel, note, velocity, timestamp, ready);
+    if (!ready) return;
+    s_processor->handle_note_on(processor_channel, note, velocity);
 }
 
 void BleMidi::onNoteOff(uint8_t channel, uint8_t note, uint8_t velocity, uint16_t timestamp) {
-    (void)timestamp;
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
-    s_processor->handle_note_off(channel, note, velocity);
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    uint8_t processor_channel = normalize_ble_channel(channel);
+
+    log_ble_channel_event("NoteOff", channel, processor_channel, note, velocity, timestamp, ready);
+    if (!ready) return;
+    s_processor->handle_note_off(processor_channel, note, velocity);
 }
 
 void BleMidi::onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp) {
-    (void)timestamp;
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
-    s_processor->handle_cc(channel, controller, value);
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    uint8_t processor_channel = normalize_ble_channel(channel);
+
+    log_ble_channel_event("ControlChange", channel, processor_channel, controller, value, timestamp, ready);
+    if (!ready) return;
+    s_processor->handle_cc(processor_channel, controller, value);
 }
 
 void BleMidi::onClock() {
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    log_ble_system_event("Clock", ready);
+    if (!ready) return;
     s_processor->handle_clock();
 }
 
 void BleMidi::onStart() {
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    log_ble_system_event("Start", ready);
+    if (!ready) return;
     s_processor->handle_start();
 }
 
 void BleMidi::onStop() {
-    if (!s_ble_midi || !s_ble_midi->enabled || !s_processor) return;
+    bool ready = s_ble_midi && s_ble_midi->enabled && s_processor;
+    log_ble_system_event("Stop", ready);
+    if (!ready) return;
     s_processor->handle_stop();
 }

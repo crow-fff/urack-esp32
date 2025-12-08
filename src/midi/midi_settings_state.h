@@ -223,11 +223,6 @@ public:
     bool get_bluetooth_enabled(void);
     const char* get_bluetooth_enabled_str(void);
 
-    // USB MIDI settings
-    void set_usb_enabled(bool enabled);
-    bool get_usb_enabled(void);
-    const char* get_usb_enabled_str(void);
-
     int get_max_bpm(void) { return MAX_BPM; }
     int get_min_bpm(void) { return MIN_BPM; }
     int get_max_midi_channel(void) { return MidiChannelAll; }
@@ -249,7 +244,6 @@ private:
     MidiChannel midi_out_channel[OutChannelCount];
     MidiClkType midi_clk_type;
     bool bluetooth_enabled;
-    bool usb_enabled;
     SemaphoreHandle_t state_mutex;
 
     const char* midi_channel_to_string(MidiChannel ch);

@@ -4,6 +4,7 @@
 #if CONFIG_TINYUSB_ENABLED
 #include <USB.h>
 #include <USBMIDI.h>
+#include <esp32-hal-tinyusb.h>
 
 USBMIDI usbMIDI;
 #endif
@@ -28,9 +29,37 @@ void UsbMidi::enable() {
     
 #if CONFIG_TINYUSB_ENABLED
     if (!initialized) {
+#if CONFIG_IDF_TARGET_ESP32
+        Serial.println("USB MIDI not available: target MCU lacks native USB (requires ESP32-S2/S3/C3)");
+        return;
+#else
+        if (!TinyUSBDevice.isInitialized()) {
+            Serial.println("Starting TinyUSB device stack");
+            if (!TinyUSBDevice.begin(0)) {
+                Serial.println("Failed to start TinyUSB device stack");
+                return;
+            }
+        } else {
+            Serial.println("TinyUSB device stack already initialized");
+        }
+
         USB.begin();
         usbMIDI.begin();
+
+        // Give host some time to enumerate the new interface
+        uint32_t start = millis();
+        while (!TinyUSBDevice.mounted() && (millis() - start) < 2000) {
+            delay(10);
+        }
+
+        if (!TinyUSBDevice.mounted()) {
+            Serial.println("USB MIDI warning: host has not enumerated the device yet");
+        } else {
+            Serial.println("USB MIDI stack initialized and mounted");
+        }
+
         initialized = true;
+#endif
     }
     enabled = true;
     Serial.println("USB MIDI enabled");

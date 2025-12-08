@@ -84,9 +84,7 @@ void setup() {
     if (midi_settings_state.get_bluetooth_enabled()) {
         ble_midi.enable();
     }
-    if (midi_settings_state.get_usb_enabled()) {
-        usb_midi.enable();
-    }
+    usb_midi.enable();
 
     // Check for test mode
     nvs_handle_t nvs_handle;

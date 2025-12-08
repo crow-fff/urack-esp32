@@ -18,7 +18,6 @@ private:
     enum SettingsPage {
         PAGE_OUTPUTS,
         PAGE_BLUETOOTH,
-        PAGE_USB,
         PAGE_COUNT
     };
 
@@ -83,9 +82,7 @@ private:
     void render_paginator(void);
     void render_menu(void);
     void render_bluetooth_page(void);
-    void render_usb_page(void);
     void handle_input(Event* event);
     void handle_menu_input(Event* event);
     void handle_bluetooth_input(Event* event);
-    void handle_usb_input(Event* event);
 };

@@ -1,7 +1,6 @@
 #include "midi.h"
 #include "midi_settings.h"
 #include "ble_midi.h"
-#include "usb_midi.h"
 #include "../util.h"
 
 MidiSettings::MidiSettings(Display* display, MidiSettingsState* state, SignalProcessor* processor, ScreenSwitcher* screen_switcher)
@@ -40,9 +39,6 @@ void MidiSettings::render() {
         case PAGE_BLUETOOTH:
             render_bluetooth_page();
             break;
-        case PAGE_USB:
-            render_usb_page();
-            break;
         default:
             break;
     }
@@ -51,7 +47,7 @@ void MidiSettings::render() {
 }
 
 void MidiSettings::render_paginator() {
-    const char* page_names[] = {"Out", "BLE", "USB"};
+    const char* page_names[] = {"Out", "BLE"};
     int page_width = SCREEN_WIDTH / PAGE_COUNT;
     
     for (int i = 0; i < PAGE_COUNT; i++) {
@@ -203,43 +199,6 @@ void MidiSettings::render_bluetooth_page() {
     }
 }
 
-void MidiSettings::render_usb_page() {
-    int y = PAGINATOR_HEIGHT + 4;
-    
-    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-    display->setCursor(0, y);
-    display->println("USB MIDI");
-    
-    y += LINE_HEIGHT + 4;
-    
-    bool is_selected = !paginator_selected;
-    bool enabled = state->get_usb_enabled();
-    
-    if (is_selected && is_editing) {
-        display->fillRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
-        display->setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-    } else if (is_selected) {
-        display->drawRect(0, y, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_WHITE);
-        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-    } else {
-        display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-    }
-    
-    display->setCursor(2, y + 1);
-    display->print("Enable: ");
-    display->print(state->get_usb_enabled_str());
-    
-    y += LINE_HEIGHT + 4;
-    display->setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-    display->setCursor(0, y);
-    display->print("Status: ");
-    if (enabled) {
-        display->print("Active");
-    } else {
-        display->print("Disabled");
-    }
-}
-
 void MidiSettings::handle_input(Event* event) {
     if (event == nullptr) return;
 
@@ -285,9 +244,6 @@ void MidiSettings::handle_input(Event* event) {
         case PAGE_BLUETOOTH:
             handle_bluetooth_input(event);
             break;
-        case PAGE_USB:
-            handle_usb_input(event);
-            break;
         default:
             break;
     }
@@ -311,31 +267,6 @@ void MidiSettings::handle_bluetooth_input(Event* event) {
                 ble_midi.enable();
             } else {
                 ble_midi.disable();
-            }
-            
-            state->store();
-        }
-    }
-}
-
-void MidiSettings::handle_usb_input(Event* event) {
-    if (event->encoder != 0) {
-        if (paginator_selected) {
-            // Navigate between pages
-            int new_page = (int)current_page + event->encoder;
-            if (new_page >= 0 && new_page < PAGE_COUNT) {
-                current_page = (SettingsPage)new_page;
-            }
-        } else if (is_editing) {
-            // Toggle USB enabled
-            bool enabled = state->get_usb_enabled();
-            state->set_usb_enabled(!enabled);
-            
-            // Enable/disable USB MIDI
-            if (state->get_usb_enabled()) {
-                usb_midi.enable();
-            } else {
-                usb_midi.disable();
             }
             
             state->store();
